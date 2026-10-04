@@ -66,7 +66,7 @@ jobs:
           [Run]
           Filename: "{app}\ArmorPaint.exe"; Description: "Launch ArmorPaint"; Flags: postinstall nowait skipifsilent
           '@ | Set-Content -Path installer.iss -Encoding ASCII
-          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Windows installer

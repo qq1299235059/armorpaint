@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      IRON_PLATFORM: windows_x64
 
     steps:
       - name: Checkout
@@ -80,4 +82,3 @@ jobs:
           name: ArmorPaint-Windows-x64-Portable
           path: dist/ArmorPaint
           if-no-files-found: error
-

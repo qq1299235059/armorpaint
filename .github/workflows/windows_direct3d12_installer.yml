@@ -1,0 +1,83 @@
+name: Windows (Direct3D12) Installer
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile Release
+        shell: bash
+        run: |
+          cd paint
+          ../base/make --compile
+
+      - name: Stage application
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE 'paint/build/out'
+          $exe = Get-ChildItem -Path $out -Filter 'ArmorPaint.exe' -Recurse -File | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "ArmorPaint.exe was not produced. Contents of build/out:"
+            Get-ChildItem -Path $out -Recurse
+          }
+          New-Item -ItemType Directory -Force -Path 'dist/ArmorPaint' | Out-Null
+          Copy-Item -Path (Join-Path $out '*') -Destination 'dist/ArmorPaint' -Recurse -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          @'
+          [Setup]
+          AppId={{B7E1C1F1-4A89-4DB7-9D46-2F1A20261004}}
+          AppName=ArmorPaint
+          AppVersion=0.0.0-git
+          AppPublisher=Armory3D
+          DefaultDirName={autopf}\ArmorPaint
+          DefaultGroupName=ArmorPaint
+          OutputDir=dist
+          OutputBaseFilename=ArmorPaint-Windows-x64-Installer
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          Uninstallable=yes
+          [Files]
+          Source: "dist\ArmorPaint\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
+          [Icons]
+          Name: "{group}\ArmorPaint"; Filename: "{app}\ArmorPaint.exe"
+          Name: "{autodesktop}\ArmorPaint"; Filename: "{app}\ArmorPaint.exe"
+          [Run]
+          Filename: "{app}\ArmorPaint.exe"; Description: "Launch ArmorPaint"; Flags: postinstall nowait skipifsilent
+          '@ | Set-Content -Path installer.iss -Encoding ASCII
+          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArmorPaint-Windows-x64-Installer
+          path: dist/ArmorPaint-Windows-x64-Installer.exe
+          if-no-files-found: error
+
+      - name: Upload portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArmorPaint-Windows-x64-Portable
+          path: dist/ArmorPaint
+          if-no-files-found: error
+

@@ -10,6 +10,8 @@ bool       _translator_init_font_cjk;
 char      *_translator_init_font_font_path;
 f32        _translator_init_font_font_scale;
 
+void translator_extended_glyphs();
+
 // Mark strings as localizable in order to be parsed by the extract_locale script
 // The string will not be translated to the currently selected locale though
 char *_tr(char *s) {
@@ -56,6 +58,18 @@ void translator_init_font_on_next_frame(void *_) {
 	f32   font_scale = _translator_init_font_font_scale;
 
 	draw_font_t *f = data_get_font(font_path);
+	// A missing or invalid CJK font can happen when a protected installation
+	// cannot write the downloaded fallback font. Never pass an empty blob to
+	// stb_truetype; keep the application usable with the bundled Latin font.
+	if (f == NULL || f->buf == NULL || f->buf->buffer == NULL) {
+		g_config->locale = "en";
+		translator_last_locale = "en";
+		translator_translations = any_map_create();
+		translator_extended_glyphs();
+		f = data_get_font("font.ttf");
+		cjk = false;
+		font_scale = 1.0f;
+	}
 	if (cjk) {
 		i32 font_index    = i32_map_get(translator_cjk_font_indices, g_config->locale) != -1 ? i32_map_get(translator_cjk_font_indices, g_config->locale) : 0;
 		f->index          = font_index;
@@ -182,6 +196,15 @@ void translator_load_translations(char *new_locale) {
 		_translator_load_translations_cjk_font_path      = string("%sfont_cjk.ttc", _translator_load_translations_cjk_font_path);
 		_translator_load_translations_cjk_font_disk_path = string("%sfont_cjk.ttc", _translator_load_translations_cjk_font_disk_path);
 
+		// Releases installed under Program Files use a protected save directory.
+		// Prefer the font shipped in the read-only data directory so language
+		// switching does not depend on a network download or write permissions.
+		char *bundled_cjk_font = string("%sfont_cjk.ttc", path_data());
+		if (iron_file_exists(bundled_cjk_font)) {
+			translator_init_font(true, "font_cjk.ttc", 1.4);
+			return;
+		}
+
 		if (!iron_file_exists(_translator_load_translations_cjk_font_disk_path)) {
 			file_download_to("https://github.com/armory3d/armorbase/raw/main/Assets/common/extra/font_cjk.ttc",
 			                 _translator_load_translations_cjk_font_disk_path, &translator_load_translations_on_cjk_downloaded, 20332392);
@@ -211,3 +234,4 @@ string_array_t *translator_get_supported_locales() {
 	}
 	return locales;
 }
+

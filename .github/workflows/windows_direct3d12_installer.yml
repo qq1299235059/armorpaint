@@ -34,6 +34,15 @@ jobs:
             Write-Error "ArmorPaint.exe was not produced. Contents of build/out:"
             Get-ChildItem -Path $out -Recurse
           }
+          $font = Join-Path $out 'data/font_cjk.ttc'
+          if (-not (Test-Path $font)) {
+            $fontSource = Join-Path $env:GITHUB_WORKSPACE 'base/assets/extra/font_cjk.ttc'
+            if (-not (Test-Path $fontSource)) {
+              Write-Error "font_cjk.ttc was not produced and is missing from the source tree."
+            }
+            New-Item -ItemType Directory -Force -Path (Split-Path $font) | Out-Null
+            Copy-Item -Path $fontSource -Destination $font -Force
+          }
           New-Item -ItemType Directory -Force -Path 'dist/ArmorPaint' | Out-Null
           Copy-Item -Path (Join-Path $out '*') -Destination 'dist/ArmorPaint' -Recurse -Force
 
@@ -82,3 +91,4 @@ jobs:
           name: ArmorPaint-Windows-x64-Portable
           path: dist/ArmorPaint
           if-no-files-found: error
+
